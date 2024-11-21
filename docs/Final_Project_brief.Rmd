@@ -14,7 +14,7 @@ editor_options:
 
 ```{r, include=FALSE}
 # setting chunk options globally so that you don't have to specify each time.
-knitr::opts_chunk$set(out.width='50%', fig.asp=.7, fig.path='Figs/', fig.align = 'center', warning=FALSE, message=FALSE, collapse = TRUE, echo = FALSE)
+knitr::opts_chunk$set(out.width='50%', fig.asp=.7, fig.path='../output/figures/', fig.align = 'center', warning=FALSE, message=FALSE, collapse = TRUE, echo = FALSE)
 
 # sets the number of digits
 options(digits=4)
