@@ -14,7 +14,7 @@ editor_options:
 
 ```{r, include=FALSE}
 # setting chunk options globally so that you don't have to specify each time.
-knitr::opts_chunk$set(out.width='50%', fig.asp=.7, fig.path='Figs/', fig.align = 'center', warning=FALSE, message=FALSE, collapse = TRUE, echo = FALSE)
+knitr::opts_chunk$set(out.width='50%', fig.asp=.7, fig.path='../output/figures/', fig.align = 'center', warning=FALSE, message=FALSE, collapse = TRUE, echo = FALSE)
 
 # sets the number of digits
 options(digits=4)
@@ -815,7 +815,7 @@ fit_full <- data_ts |>
 Due to a bug in the TSLM function, we use the ARIMA model with all p,d,
 q, P, D, and Q settings set to 0.
 
-Residual diagnostics and see if you can improve model further:
+Residual diagnostics and see if you can improve
 
 ```{r}
 fit_full |> 
@@ -1666,7 +1666,11 @@ data_long_ts4 |>
   gg_subseries(Values)
 ```
 
-The subseries plot highlights clear seasonal patterns within the data, for cpi and average weekly earnings. suggesting that incorporating seasonal components into our forecasting model could improve accuracy." However, for the other variables, it doesn’t seem like there is a seasonal factor in the series.
+The subseries plot highlights clear seasonal patterns within the data,
+for cpi and average weekly earnings. suggesting that incorporating
+seasonal components into our forecasting model could improve accuracy."
+However, for the other variables, it doesn’t seem like there is a
+seasonal factor in the series.
 
 Autocorrelation properties from correlograms:
 
@@ -1686,7 +1690,11 @@ components(dcmp) |>
   autoplot()
 ```
 
-The STL decomposition separates the time series into trend, seasonal, and remainder components. The trend component shows a rather stationary line, except at the 2008 and covid mark from significant world events. Meanwhile the seasonal component reveals somewhat of a seasonal trend, that increases in magnitude in most recent years. The remainder component, ideally resembling random noise,does for the most part.
+The STL decomposition separates the time series into trend, seasonal,
+and remainder components. The trend component shows a rather stationary
+line, except at the 2008 and covid mark from significant world events.
+Meanwhile the seasonal component reveals somewhat of a seasonal trend,
+that increases in magnitude in most recent years. The remainder component, ideally resembling random noise,does for the most part.
 
 Correlations of consumption with the lags of income and sentiment
 
@@ -1967,3 +1975,5 @@ We employed a range of methodologies, including time series analysis and econome
 Economic forecasting is indispensable for navigating the future economic landscape. It requires a balance of technical expertise and an understanding of global dynamics, with the aim of supporting informed decision-making and fostering a stable economic environment.
 
 
+
+```
