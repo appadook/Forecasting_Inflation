@@ -1,0 +1,17 @@
+# READ ME
+
+This folder contains all the data series, r scripts, Rmarkdown and figure used
+for our final submission
+
+We currently made two pdfs for our final submission. One that contains the full
+length of our code, interpretations and analysis for all our dependent variables.
+This file is called Final_Project_full
+
+We also have a more adequate length submission, where we explain the methodology
+we used on a single dependent variable in a clear interpretaion of all graphs
+and code used aswell as the procedure. 
+
+We weren't sure exactly how you wanted the work so we provided both those files 
+and pdf but please feel free to explore both if you feel like you want more detail
+
+Ofcourse all the r-script files are included so they can be looked at and run.

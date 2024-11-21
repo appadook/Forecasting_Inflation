@@ -1,0 +1,585 @@
+---
+title: "Final Course Project"
+subtitle: "Final Project in R Markdown"
+author: "*Kurtik Appadoo and Kyle Zaslaw*"
+output: 
+  pdf_document:
+    toc: yes
+    number_sections: yes
+date: "`r format(Sys.Date(), '%B %Y')`"  
+---
+
+```{r, include=FALSE}
+# setting chunk options globally so that you don't have to specify each time.
+knitr::opts_chunk$set(out.width='50%', fig.asp=.7, fig.path='Figs/', fig.align = 'center', warning=FALSE, message=FALSE, collapse = TRUE, echo = FALSE)
+
+# sets the number of digits
+options(digits=4)
+```   
+
+```{r, include=FALSE}
+# activate all packages that you will need for sure, for example 
+library(tinytex) # required to produce pdf documents
+library(tidyverse)
+library(fpp3)
+library(forecast)
+```
+
+```{r}
+data <- read_csv("data1.csv") |> 
+                mutate(DATE = yearquarter(DATE))
+data_long <- read_csv("data_long1.csv") |> 
+                mutate(DATE = yearquarter(DATE))
+data_ts <- data |> 
+  as_tsibble(index = DATE)
+data_long_ts <- data_long |> 
+  as_tsibble(index = DATE, key = Series)
+```
+
+
+\newpage
+# Introduction
+
+Forecasting key economic indicators such as Real GDP Growth, CPI (Consumer Price Index), Real Non-Residential Fixed Investment, and Average Weekly Earnings is pivotal for comprehending and guiding the economic trajectory of a country. These forecasts serve as the backbone for economic policy-making, investment decisions, and provide insights into the overall health and direction of the economy. 
+Forecasting these economic indicators is critical for several intertwined reasons. Understanding CPI in conjunction with Real GDP Growth helps central banks and policymakers balance growth with inflation control, crucial for maintaining purchasing power and economic stability. Forecasting Real Non-Residential Fixed Investment sheds light on business sentiment and future productivity, as these investments are directly tied to capacity expansion and technological advancements, driving long-term GDP growth. Average Weekly Earnings offer insights into consumer spending potential, inflationary pressures, and the health of the labor market, which in turn influences Real GDP Growth through consumer spending.
+
+To holistically forecast these indicators, we’ll employ a few forecasting models we’ve studied in class as well as contribute the effect of various predictors in helping the accuracy of our model and thus forecast. Given the time series nature of these indicators, ARIMA models, augmented with seasonal adjustments, will capture underlying trends, cycles, and seasonal effects, crucial for accurate short-term and medium-term forecasts. To avoid using just one model, we’ll also establish and compare Time series Linear models to encapsulate the underlying and existing linear relationships in existing economic models. As we tend to observe in most economic literature, ARIMA models or just models that make use of lagged variables tend to yield more accurate results, however some TSLM models have proven to provide useful insights, Thus we’ll set up and compare both.
+
+Accurate forecasting and analysis could unveil; How inflation dynamics (CPI) interact with GDP growth, the implications of fixed investment on future productivity and GDP, and the feedback loop between earnings growth, consumer spending, and overall economic activity. Evaluate the effectiveness of monetary and fiscal policies on stabilizing inflation, stimulating investment, and enhancing workers' earnings without overheating the economy. Identifying emerging trends and potential risks in inflation, investment, and labor markets, guiding policymakers and investors in proactive decision-making. 
+Utilizing forecasts to fine-tune monetary policy, ensuring sustainable growth while keeping inflation in check, thus preserving the economy's purchasing power. Fiscal incentives or support measures could be designed to encourage non-residential fixed investment in sectors identified as growth drivers, enhancing long-term economic prospects. Understanding the trajectory of average weekly earnings alongside labor market trends can inform minimum wage adjustments, tax policies, and social welfare programs to support equitable growth.
+
+In blending these forecasts, we gain a comprehensive view of the economy, allowing for nuanced policy interventions that support sustainable growth, manage inflation, encourage productive investment, and ensure the well-being of the workforce. This integrated approach enhances our ability to navigate economic complexities, leverage opportunities for growth, and mitigate potential risks.
+
+
+
+# Literature Review
+
+## Real GDP growth quarterly
+
+Consumer Expenditure
+Indicates consumer confidence and disposable income, driving demand and GDP growth.
+Lagged variable: Identifies trends in consumer behavior over time, affecting future economic activity.
+
+Business Investment
+Reflects business confidence and is crucial for productivity and expanding production capacity.
+Lagged variable: Gauges the delayed impact of investments on economic growth, considering the time to fruition.
+
+Government Spending/Investment
+Directly boosts GDP through public services and infrastructure, stimulating economic activity.
+Lagged variable: Helps understand the rollout and impact of fiscal policies on future GDP growth.
+
+Interest Rates
+Influence borrowing costs, spending, investment, and thereby economic growth. Affect exchange rates and export competitiveness.
+Lagged variable: Accounts for the time lag in monetary policy’s effect on the economy, guiding future GDP predictions.
+
+Lagged data for these predictors is crucial in forecasting real GDP growth, as it captures the time-delayed effects of economic activities and policies on the overall economy, enhancing forecast accuracy.
+
+
+## Average Weekly Earnings monthly
+
+Employment Rate
+Reflects labor demand; higher employment rates can lead to wage increases due to competition for labor.
+Lagged Data: Wage adjustments may follow changes in employment rates as employers react to shifting labor market conditions over time.
+
+Inflation Rate (CPI)
+Workers seek wages that keep pace with the cost of living, influencing wage negotiations.
+Lagged Data: Past inflation trends help predict wage adjustments as both employers and employees consider inflation in their wage determinations.
+
+Labor Productivity
+Higher productivity can lead to wage increases as businesses generate more revenue per employee.
+Lagged Data: Productivity gains often translate into wage growth after businesses assess the durability of these improvements.
+
+Industry Growth Rates
+Fast-growing industries may offer higher wages due to increased demand for skilled labor.
+Lagged Data: Wages adjust following industry growth, reflecting a period of evaluation and financial planning by businesses.
+
+Understanding these predictors and incorporating lagged data allows for a more accurate forecast of average weekly earnings, accounting for the time it takes for economic and policy changes to fully impact wage levels.
+
+
+
+## CPI monthly (index)
+
+Producer Price Index (PPI):
+The PPI measures the average changes in selling prices received by domestic producers for their output and is often seen as a leading indicator for CPI. Increases in PPI can indicate rising costs for producers that may be passed on to consumers, leading to higher CPI.
+
+Lagged Data Usage: A short lag, often one to two months, is useful since changes in producer prices quickly translate to consumer prices, especially in fast-moving consumer goods.
+
+Wage Growth:
+Rising wages can increase disposable income, leading to higher demand for goods and services, which can push prices up. Wage growth is a component of cost-push inflation, where the cost of production increases, leading to higher prices.
+
+Lagged Data Usage: A lag of a few months is often considered, as changes in wage policies or labor market conditions may take time to manifest in consumer prices.
+
+Oil Prices:
+Oil prices directly affect the cost of transportation and production of goods. High oil prices can lead to increased production costs for goods and services, contributing to higher CPI.
+Lagged Data Usage: The effect of oil price changes on CPI can be immediate or delayed, depending on the extent to which businesses absorb the increased costs before passing them on to consumers, usually considering a lag of one to three months.
+
+Exchange Rates:
+The strength of a country's currency can influence inflation through import prices. A weaker currency makes imports more expensive, contributing to higher consumer prices, whereas a stronger currency can have the opposite effect.
+Lagged Data Usage: Exchange rate movements may take several months to influence CPI as changes in import costs are gradually passed on to consumer prices.
+
+Economic Activity Indicators (e.g., GDP Growth, Unemployment Rate):
+High levels of economic activity and low unemployment can lead to increased demand for goods and services, potentially causing prices to rise if supply does not keep pace with demand.
+
+Lagged Data Usage: These indicators may have varying lags, with GDP data often considered on a quarterly basis and unemployment rates on a monthly basis. The impact on CPI may be observed over several months as changes in economic activity affect consumer spending patterns.
+
+
+## Real non-Residential Fixed Investments  growth quarterly
+
+Interest Rates:
+Interest rates are a critical factor in investment decisions. Lower interest rates reduce the cost of borrowing, making it cheaper for businesses to finance new projects and investments, whereas higher rates do the opposite.
+Lagged Data Usage: The effect of interest rate changes on investment can have a lag, as firms adjust their investment plans and financing arrangements. A lag of a few months to a year can be considered.
+
+Corporate Profits:
+Higher corporate profits can signal strong business conditions, providing firms with the internal funds needed for investment. It indicates the financial health and potential for reinvestment into productive assets.
+Lagged Data Usage: Investments driven by corporate profits might be observed with a lag, as decisions on allocating profits into new investments are made over time, typically considering a lag of one to two quarters.
+
+Technological Changes and Innovations:
+Technological advancements can create new investment opportunities by improving the efficiency or reducing the cost of production. Businesses need to invest in new technology to remain competitive and capitalize on these advancements.
+Lagged Data Usage: The adoption of new technologies can have a varied lag, as firms need time to assess, plan, and implement technological investments, often over months to several years depending on the sector and technology complexity.
+
+
+Depending on the number of authors, use this citation style:
+
+* One author: Tarassow (2019) says …
+* Two authors: Smeekes and Etienne (2018) say
+* Karanasos et. all (2021) say …
+
+
+# Data and Time Series Characteristics
+
+## Data
+Dependent variable: Real GDP Growth
+
+- FEDFUNDS (Federal Funds Rate): This series is quarterly, obtained from FRED, covering the period from July 1954 to February 2024. The Federal Funds Rate is typically expressed in percentage per annum, indicating the interest rate at which depository institutions trade federal funds (balances held at Federal Reserve Banks) with each other overnight.
+
+- Government Spending: This series is quarterly, obtained from FRED, covering the period from January 1947 to October 2023. Government spending data are usually expressed in currency terms, often in billions of USD, representing the total government expenditures within a given period.
+
+- Investment: This series is quarterly, obtained from FRED, covering the period from January 1947 to October 2023. Investment data typically refer to gross private domestic investment and are expressed in currency terms, often in billions of USD, indicating the amount of investment in business, residential, and inventory investments within the economy.
+
+- Real GDP (Gross Domestic Product): This series is quarterly, obtained from FRED, covering the period from January 2002 to October 2023. Real GDP is usually expressed in billions of USD (adjusted for inflation), measuring the total economic output of a country, accounting for changes in price levels or purchasing power.
+
+- Personal Consumption Expenditures (PCE): This series is quarterly, obtained from FRED, covering the period from January 1959 to January 2024. PCE data are typically expressed in billions of USD (nominal or real), reflecting the total value of goods and services consumed by households.
+
+- Consumer Sentiment: This series is quarterly, obtained from FRED, covering the period from November 1952 to January 2024. Consumer Sentiment is measured as an index, which reflects the overall health of the economy as perceived by consumers, based on their attitudes towards current economic conditions and future expectations.
+
+
+
+Dependent variable: Average Weekly Income
+
+- Average Weekly Earnings: This series is quarterly, obtained from FRED, covering the period from March 2006 to February 2024. The data is likely in USD, reflecting average weekly earnings across the economy.
+
+- CPI (Consumer Price Index): The CPI series is quarterly, sourced from FRED, covering an extensive period from January 1913 to February 2024. It is measured as an index, reflecting changes in the price level of a basket of consumer goods and services.
+
+- Labor Productivity: This series is quarterly, obtained from FRED, covering the period from April 1947 to October 2023. The data is presented as an index, indicating the efficiency of labor input in the production process.
+
+- Unemployment Rate: The Unemployment Rate series is quarterly, obtained from FRED, covering the period from January 1948 to February 2024. The data is in percentage terms, representing the fraction of the labor force that is not currently employed but actively seeking employment.
+
+
+Dependent variable: CPI
+
+- CPI Data: This series represents the Consumer Price Index (CPI) for All Urban Consumers (CPI-U), which measures the average change over time in the prices paid by urban consumers for a market basket of consumer goods and services. The dataset shows monthly data points. The data is typically obtained from the Bureau of Labor Statistics (BLS). The provided dataset starts from January 1913. However, without viewing the entire dataset, the end date is not specified here. Generally, CPI data is updated monthly and can run up to the most recent full month or the previous month, depending on the dataset provided.
+
+
+- PPI Data: The Producer Price Index (PPI) series measures the average change over time in the selling prices received by domestic producers for their output. The data is crucial for understanding inflation at the producer level before it impacts consumers. Typically sourced from the Bureau of Labor Statistics (BLS). Specific dates are not mentioned here, but PPI data is usually updated monthly, similar to the CPI.
+
+
+- Wage Growth: This dataset likely contains information on the average change in wage and salary disbursements over time, which can indicate economic health and consumer purchasing power. Data on wage growth can be collected from various sources, including the BLS or the Bureau of Economic Analysis (BEA), depending on the specific measure of wage growth used. As with the other datasets, this typically would cover a similar range, often updated on a monthly or quarterly basis.
+
+
+- Unemployment Rate (UNRATENSA): The unemployment rate data measures the percentage of the total labor force that is unemployed but actively seeking employment and willing to work. The dataset provided seems to focus on non-seasonally adjusted figures. Commonly sourced from the Bureau of Labor Statistics (BLS). This dataset is usually updated monthly and covers a range that could be similar to the other datasets mentioned.
+
+
+- Oil Prices: This dataset represents the changes in oil prices over time, which can significantly impact global economies and inflation rates. Oil prices are a critical component in production costs and transportation. Oil price data can be obtained from various sources, including the U.S. Energy Information Administration (EIA) or global oil market tracking organizations. Oil prices are typically tracked daily, but datasets might aggregate this information on a monthly basis to align with economic indicators.
+
+
+Dependent variable: Real Nonresidential Fixed Investment
+
+- Interest Rates: BOGZ1FL072052006Q: This dataset likely represents a specific economic or financial series, given the code-like name. Based on the data structure, it appears to be a quarterly series with numerical values associated with each date. Without direct reference, the source is not explicitly mentioned, but codes similar to this often originate from federal databases, possibly the Board of Governors of the Federal Reserve System (U.S. Federal Reserve) given the "BOG" prefix. Coverage Period: From July 1954 to at least July 1955 (as per the provided sample), indicating a historical series that could extend to recent years. The exact end date is not provided here, and the series is updated quarterly.
+
+
+- Corporate Profits - Q0973BUSQ027NNBR: This dataset also features a code-like title, suggesting it's from a specific economic database. It contains numerical values recorded quarterly, likely representing an economic indicator. The "NNBR" in the name suggests a potential connection to the National Bureau of Economic Research (NBER) or related datasets. Starting from January 1946, this historical dataset provides quarterly data, with the sample showing data up to January 1947. The full dataset's range and update frequency would need further specifics.
+
+
+- Technology Inventories - UITITI: Appears to be a monthly dataset with numerical values, potentially related to unemployment, labor, or another economic measure based on the naming convention. The specific source is not indicated by the name alone, but it may be associated with governmental or economic research databases, possibly labor or economic statistics. The dataset covers from January 1992, providing monthly updates. The sample shown extends to May 1992, without the end date of the full dataset specified.
+
+
+- Real Nonresidential Fixed Investment (ND000336Q): This quarterly dataset measures real non-residential fixed investment, capturing business investments in physical assets like buildings (excluding residential), machinery, and equipment, adjusted for inflation. While the source is not explicitly mentioned, data of this nature is often obtained from the Bureau of Economic Analysis (BEA) or similar economic statistical agencies. Starting from January 2007, with the provided sample extending to January 2008. This type of data is typically updated quarterly, reflecting changes in business investment behaviors over time.
+
+## Time Series Characteristics
+
+Time series plots:
+```{r}
+data_long |> 
+  ggplot(aes(x = DATE, y = Values, color = Series)) +
+  geom_line(show.legend = FALSE) +
+  ggtitle("Time Series Plot of Real GDP and predictors") +
+  facet_grid(Series ~., scales = "free_y")
+```
+
+The time series of Real Gdp and its predictors are shown and after transforming the series to show growthfrom previous lag, we can observe that the provided series are all mostly stationary. We only observe a volatile change for all the series around the time of Covid.
+
+KPSS test results for stationary:
+```{r}
+data_long_ts |> 
+  features(Values, features = list(unitroot_kpss))
+```
+The KPSS test results indicate that the series is stationary, with a p-value of 0.1 for all variables, besides Interest Rate, which was 0.09. This suggests that no differencing might be required to achieve stationarity, which is essential for accurate forecasting
+
+Seasonality plots:
+```{r}
+data_long_ts |> 
+  gg_subseries(Values)
+```
+The subseries plot highlights clear seasonal patterns within the data, for government expenditure and real gdp. suggesting that incorporating seasonal components into our forecasting model could improve accuracy." However, for the other variables, it doesn’t seem like there is a seasonal factor in the series.
+
+Autocorrelation properties from correlograms:
+```{r}
+data_long_ts |> 
+  ACF(Values, lag_max = 12) |> 
+  autoplot()
+```
+The ACF plot shows, mostly useful for real gdp, that the current value is highly correlated with a lagged 4, 8, and 12 reading, as it would make sense from our understanding that the series is seasonal, so the data from the same quarter provides high correlation.
+
+
+```{r}
+# Decomposition of Dependent Variable
+dcmp <- data_ts|>
+  model(stl = STL(real_gdp))
+
+components(dcmp) |>
+  autoplot()
+```
+The STL decomposition separates the time series into trend, seasonal, and remainder components. The trend component shows a rather stationary line, except at the 2008 and covid mark from significant world events. Meanwhile the seasonal component reveals somewhat of s a seasonal trend. The remainder component, ideally resembling random noise,does for the most part besides again at the covid part.
+
+
+```{r, include=FALSE}
+## Correlations with Real GDP and it's predictors
+lag_n <- 12
+real_gdp_ir <- data_ts |> 
+  CCF(real_gdp, IR, lag_max = lag_n) |> 
+  rename(lag = lag, FED_rate = ccf)
+real_gdp_inv <- data_ts |> 
+  CCF(real_gdp, investment, lag_max = lag_n) |> 
+  rename(lag = lag, investment = ccf)
+real_gdp_pce <- data_ts |> 
+  CCF(real_gdp, pce, lag_max = lag_n) |> 
+  rename(lag = lag, PCE = ccf)
+real_gdp_govt_exp <- data_ts |> 
+  CCF(real_gdp, govt_exp, lag_max = lag_n) |> 
+  rename(lag = lag, govt_exp = ccf)
+real_gdp_sent <- data_ts |> 
+  CCF(real_gdp, sent, lag_max = lag_n) |> 
+  rename(lag = lag, sent = ccf)
+
+corrs <- real_gdp_ir |> 
+  left_join(real_gdp_pce, by = "lag") |> 
+  left_join(real_gdp_inv, by = "lag") |> 
+  left_join(real_gdp_govt_exp, by = "lag") |> 
+  left_join(real_gdp_sent, by = "lag") |> 
+  as_tibble() |> 
+  filter(row_number() <= 1+lag_n) |> 
+  arrange(desc(lag))
+```
+
+```{r}
+corrs
+```
+The CCF between real GDP and the predictors are shown. FedFUNDS interest rate had very weak correlation coefficients so we decided to drop it from being used in the models, however the other variables did show some good correlation at some lags, as we can see. Notably, from investment showing decent correlation at lag 1,4 and 9.
+
+# Application of Forecasting Methods
+
+Specify training and test sets: I specified the 2021-2023 as test set and the rest as the training set
+```{r}
+## specify training and test sets
+train <- data_ts |>
+  filter(year(DATE) <= 2021)
+test <- data_ts |>
+  filter(year(DATE) > 2021)
+
+autoplot(train, real_gdp) +
+  autolayer(test, real_gdp, color= "red")
+
+
+```
+We specified the test set from 2021 onwards so that we could capture the covid event, and the training set as anything before.
+
+Dummy Variables
+We include dummy variables for the year of 2008 and the first quarter of 2020 in order to capture the financial crisis of 2008 as well as the residual errors from the start of covid. Both were done in a way to capture the residual errors from those periods.
+  
+## Exploring TSLM-D models
+In this group I have tried these models:
+
+```{r, echo=TRUE}
+#### Exploring TSLM-D models
+
+fit_lm <- train |>
+  model(
+    lm_1 = TSLM(real_gdp ~ season()  + lag(govt_exp,6) + lag(investment,5) + 
+                  dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 + 
+                  dummy_2020Q1 + dummy_2020Q2),
+    lm_2 = TSLM(real_gdp ~ season()  + lag(govt_exp,6) + lag(investment,5) + 
+                  lag(pce,7) + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + 
+                  dummy_2008Q4  + dummy_2020Q1 + dummy_2020Q2),
+    lm_3 = TSLM(real_gdp ~ season()  + lag(govt_exp,7) + lag(investment,5) + 
+                  lag(govt_exp,6) + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 
+                + dummy_2008Q4  + dummy_2020Q1 + dummy_2020Q2),
+    lm_4 = TSLM(real_gdp ~ season()  + lag(govt_exp,6) + lag(investment,5) + 
+                  lag(pce, 7) + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + 
+                  dummy_2008Q4  + dummy_2020Q1 + dummy_2020Q2),
+    lm_5 = TSLM(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1) + 
+                  lag(pce, 2) + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + 
+                  dummy_2008Q4  + dummy_2020Q1 + dummy_2020Q2),
+    lm_6 = TSLM(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1) + 
+                  dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4  + 
+                  dummy_2020Q1 + dummy_2020Q2),
+    lm_7 = TSLM(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1) + 
+                  lag(pce,3) + lag(sent, 2) + dummy_2008Q1 + dummy_2008Q2 + 
+                  dummy_2008Q3 + dummy_2008Q4  + dummy_2020Q1 + dummy_2020Q2)
+  )
+```
+
+```{r}
+glance(fit_lm) |> 
+  arrange(AICc) |> 
+  select(.model, AICc)
+
+```
+Based on the AICs of all the TSLM models, it seems the TSLM_6 performed best.
+
+Mathematically, the chosen model is the following:
+\begin{align*}
+y_t &= \beta_0 + \beta_{1,1} g_{t-4} + \beta_{1,1} i_{t-2} + \varepsilon_t
+\end{align*}
+where $\varepsilon_t$ is assumed to be white noise (i.e. mean zero and serially uncorrelated) and the regression also includes 3 seasonal dummies that are not shown for brevity aswell as dummy variables for the 2008 year and the first two quarters of 2020. Note that we ended up chosing $y_{t-1}$ and $s_{t-1}$, which are exactly the lags where the positive correlation of these two variables with real gdp is highest as seen in the correlation table in the previous section. 
+
+
+Do residuals diagnostics and try to improve
+```{r}
+fit_lm |> 
+  select(lm_6) |> 
+  gg_tsresiduals(lag = 12)
+```
+The residuals seem to have an average centered at zero which is a good sign for our model along with the ACF that indicates good significance of the model. The residuals show that the model has pretty good fit with the training data but also that residuals seem to be kept  in check, partially with the introduction of dummy variables taking out the events of covid and the financial crisis of 2008.
+
+
+## Exploring TSLM-D-ARIMA models
+
+In this group, I will take the model chosen in the TSLM-D group as my base model and see whether fitting an ARIMA model for the error term is going to make any difference.
+
+In this group I have tried the following specifications:
+
+```{r, echo=TRUE}
+fit_lm_arima <- train |>
+  model(
+    lm_arima_1 = ARIMA(real_gdp ~ season()  + lag(govt_exp,7) + lag(investment,5) 
+                       + lag(govt_exp,6)
+                       + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                       + dummy_2020Q1 + dummy_2020Q2),
+    lm_arima_2 = ARIMA(real_gdp ~ 0 + season() + pdq(1,0,2) + PDQ(2,0,1) + 
+                         lag(govt_exp,7) + 
+                         lag(investment, 5) + lag(govt_exp, 6)
+                       + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                       + dummy_2020Q1 + dummy_2020Q2),
+    lm_arima_3 = ARIMA(real_gdp ~ 0 + season() + pdq(1,0,3) + PDQ(2,0,0) + 
+                         lag(govt_exp,7) + 
+                         lag(investment, 5) + lag(govt_exp, 6)
+                       + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                       + dummy_2020Q1 + dummy_2020Q2),
+    lm_arima_4 = ARIMA(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1) 
+                       + lag(pce, 2)
+                       + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                       + dummy_2020Q1 + dummy_2020Q2),
+    lm_arima_5 = ARIMA(real_gdp ~ season() + 0 + lag(govt_exp,1) + lag(investment,1)
+                       + pdq(0:1,0,0:2) + PDQ(0:2,0,0:2)
+                       + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                       + dummy_2020Q1 + dummy_2020Q2)
+  )
+```
+
+It seems all specifications for $\eta_t$ lead to the same ARIMA model: `ARIMA(0,0,1)`
+```{r, include=FALSE}
+fit_lm_arima |> 
+  pivot_longer(everything())
+```
+Mathematically, `ARIMA(0,0,1)` means `ARIMA()` function suggests the best model for $\eta_t$ is the following 
+
+$$\eta_t = \theta_1 \varepsilon_{t-1} + \varepsilon_t$$
+where $\varepsilon_t$ is a white noise process. Consequently, the full model becomes
+$$
+y_t = \beta_0 + \beta_{1,1} g_{t-1} + \beta_{1,1} i_{t-1} + \theta_1 \varepsilon_{t-1} + \varepsilon_t 
+$$
+
+
+```{r}
+glance(fit_lm_arima) |> 
+  arrange(AICc) |> 
+  select(.model, AICc)
+```
+Based on the AICs of all the TSLM-D-ARIMA models, it seems the LM_ARIMA_4 performed best. 
+Let's pick `lm_arima_4` from this group. 
+
+
+## ARIMA models
+
+In this group I have tried the following specifications:
+```{r, echo=TRUE}
+fit_arima <- train |> model(
+  auto = ARIMA(real_gdp ~ dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+               + dummy_2020Q1 + dummy_2020Q2),  
+  auto_s = ARIMA(real_gdp ~ dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                 + dummy_2020Q1 + dummy_2020Q2, stepwise = FALSE),  
+  arima_p = ARIMA(real_gdp ~ season() + 0 + pdq(1,0,1) + PDQ(0,0,0)
+                  + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 + 
+                    dummy_2020Q1 + dummy_2020Q2),
+  arima002001 = ARIMA(real_gdp ~ season() + 0 + pdq(1,0,2) + PDQ(1,0,1)
+                      + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                      + dummy_2020Q1 + dummy_2020Q2),
+  arima202202 = ARIMA(real_gdp ~ season() + 0 + pdq(1,0,0) + PDQ(1,0,1)
+                      + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                      + dummy_2020Q1 + dummy_2020Q2),
+  arima111 = ARIMA(real_gdp ~ season() + 0 + pdq(1,1,1)
+                   + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 + 
+                     dummy_2020Q1 + dummy_2020Q2),
+  arima010 = ARIMA(real_gdp ~ season() + 0 + pdq(0,1,0)
+                   + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 + 
+                     dummy_2020Q1 + dummy_2020Q2),
+  arima_seasonal = ARIMA(real_gdp ~ season() + 0 + PDQ(1,0,1)
+                         + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                         + dummy_2020Q1 + dummy_2020Q2),
+  arima_complex = ARIMA(real_gdp ~ season() + 0 + pdq(2,0,2) + PDQ(2,0,2)
+                        + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                        + dummy_2020Q1 + dummy_2020Q2),
+  arima_stepwise_off = ARIMA(real_gdp ~ dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 
+                             + dummy_2008Q4   + dummy_2020Q1 + dummy_2020Q2, stepwise = FALSE, approximation = FALSE),
+  arima_non_seasonal = ARIMA(real_gdp ~ season() + 0 + pdq(0,0,2)
+                             + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                             + dummy_2020Q1 + dummy_2020Q2),
+  arima_seasonal_adjust = ARIMA(real_gdp ~ season() + 0 + pdq(2,0,2) + PDQ(1,0,1)
+                                + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 
+                                + dummy_2020Q1 + dummy_2020Q2)
+  )  
+```
+
+
+Tabulating the proposed specifications
+```{r, include=FALSE}
+fit_arima |> 
+  pivot_longer(everything(), 
+                    names_to = "Model name",
+                    values_to = "Orders")
+```
+
+Using the Akaike information criterion (AICs) we pick the winning among ARIMA
+```{r}
+glance(fit_arima) |> 
+  arrange(AICc) |> 
+  select(.model, AICc)
+```
+Based on the AICs of all the ARIMA models, it seems the auto arima model performed best. 
+ 
+## Comparing three models on the test set
+
+```{r, echo=TRUE}
+fit_train <- train |>
+  model(
+    lm_1       = TSLM(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1)
+                      + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                      + dummy_2020Q1 + dummy_2020Q2),
+    lm_arima_1 = ARIMA(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1)
+                       + lag(pce, 2)
+                       + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                       + dummy_2020Q1 + dummy_2020Q2),
+    auto       = ARIMA(real_gdp ~ season() + 
+                         dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4
+                       + dummy_2020Q1 + dummy_2020Q2)
+  )
+```
+Note that I'm manually specifying ARIMA models for `lm_arima_1` and `auto` as chosen in the previous section. Since we are again estimating on the same train set, but this would be important if we were to estimate one of these ARIMA models on the full sample. Because without these restrictions, ARIMA() function will probably choose another model, which might not be what we want. 
+
+When the three models, one from each group, are compared on the test set with respect to the RMSE measure, `lm_6` turns out to be the winner
+```{r}
+fc <- fit_train |> 
+  forecast(test)
+accuracy(fc, test) |> 
+  arrange(RMSE)
+```
+The AICc values help compare the relative quality of the models while adjusting for model complexity. Lower AICc values indicate a better fit to the data, given the number of parameters. This comparison can guide the selection of the most appropriate model for forecasting real GDP, balancing fit and parsimony. By comparing all the best models from each respective model type, we see that the TSLM model performs better with the lowest RMSE value.
+
+## Obtaining out-of-sample forecasts
+
+Next we estimate the winner model using the full sample
+```{r, echo=TRUE, eval=TRUE}
+fit_full <- data_ts |>
+  model(
+    lm_1 = ARIMA(real_gdp ~ season()  + lag(govt_exp,1) + lag(investment,1) + 
+                   pdq(0,0,0) + PDQ(0,0,0) 
+                 + dummy_2008Q1 + dummy_2008Q2 + dummy_2008Q3 + dummy_2008Q4 +
+                   dummy_2020Q1 + dummy_2020Q2)
+  )
+```
+Due to a bug in the TSLM function, we use the ARIMA model with all p,d, q, P, D, and Q settings set to 0.
+
+Residual diagnostics and see if you can improve model further:
+```{r}
+fit_full |> 
+  select(lm_1) |> 
+  gg_tsresiduals()
+```
+
+How do you generate future values for predictors? I used the ARIMA() in order to generate future values for our predictors based on the historical data of those predictors and the automatic algorithm from ARIMA() that will forecast those future values.
+```{r, include=FALSE}
+gov_exp_fit <- data_ts |>
+  model(
+    ARIMA(govt_exp)
+  )
+gov_exp_forecast <- gov_exp_fit |>
+  forecast(h = 4)
+gov_exp_forecast
+
+inv_fit <- data_ts |>
+  model(
+    ARIMA(investment)
+  )
+inv_forecast <- inv_fit |>
+  forecast(h = 4)
+inv_forecast
+
+gov_exp_forecast_values <- gov_exp_forecast$.mean %>% as.vector()
+inv_forecast_values <- inv_forecast$.mean %>% as.vector()
+
+
+data_future <- new_data(data_ts, 4) |> 
+  mutate(
+    govt_exp = gov_exp_forecast_values, 
+    investment = inv_forecast_values,
+    dummy_2008Q1 = 0, 
+    dummy_2008Q2 = 0,
+    dummy_2008Q3 = 0,
+    dummy_2008Q4 = 0,
+    dummy_2020Q1 = 0,  
+    dummy_2020Q2 = 0
+  )
+data_future
+```
+
+
+Forecasting next 4 quarters:
+```{r}
+fc_full <- fit_full |> 
+  forecast(new_data = data_future)
+fc_full
+
+fc_full |> 
+  autoplot(data_ts, level = NULL)
+```
+
+
+# Conclusion
+
+
+
+
+
+
+
+# Bibliography
